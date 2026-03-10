@@ -54,13 +54,16 @@ public final class Exo2Tests {
 				  variables
 				    x;
 				  début
+				  	x <- 1;
 				    tant que x < 10 faire
 				      interrompre;
 				      écrire(1);
 				    fin tant que
 				    écrire(2);
 				  fin
-				""").assertOutputs(new Node.Int(2));
+				""")
+		.assertHasErrorContaining(Phase.STATIC, "Code mort")
+		.assertOutputs(new Node.Int(2));
 	}
 
 
@@ -83,29 +86,33 @@ public final class Exo2Tests {
 				    fin tant que
 				       écrire(4);
 				  fin
-				""").assertOutputs(new Node.Int(4));
+				""")
+		.assertHasErrorContaining(Phase.STATIC, "Code mort")
+		.assertOutputs(new Node.Int(4));
 	}
 
 
 	@Test
 	void deadCode_both_branches() {
 		new LeaAsserts("""
-				  algorithme
-				  variables
-				    x;
-				  début
-				    x <- 0;
-				    tant que x < 10 faire
-				      si x < 5 alors
-				        interrompre;
-				      sinon
-				        interrompre;
-				      fin si
-				      écrire(1);
-				    fin tant que
-				    écrire(2);
-				  fin
-				""").assertOutputs(new Node.Int(2));
+				 algorithme
+				 variables
+				   x;
+				 début
+				   x <- 0;
+				   tant que x < 10 faire
+				     si x < 5 alors
+				       interrompre;
+				     sinon
+				       interrompre;
+				     fin si
+				     écrire(1);
+				   fin tant que
+				   écrire(2);
+				 fin
+				""")
+		.assertHasErrorContaining(Phase.STATIC, "Code mort")
+		.assertOutputs(new Node.Int(2));
 	}
 
 

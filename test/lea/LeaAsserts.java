@@ -77,7 +77,6 @@ public class LeaAsserts {
 	}
 
 	public LeaAsserts assertOutputs(Value... expected) {
-		assertHasNoError();
 		var output = reporter.getOutput();
 		assertEquals(expected.length, output.size(), "Output count mismatch: " + output);
 		for (int i = 0; i < expected.length; i++) {
