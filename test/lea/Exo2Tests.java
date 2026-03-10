@@ -15,7 +15,7 @@ public final class Exo2Tests {
 	@Test
 	void break_syntax_is_accepted() {
 		new LeaAsserts("""
-				algorithme 
+				algorithme
 				début
 					tant que vrai faire
 						interrompre;
@@ -81,7 +81,7 @@ public final class Exo2Tests {
 				      fin si
 				      écrire(3);
 				    fin tant que
-			        écrire(4);
+				       écrire(4);
 				  fin
 				""").assertOutputs(new Node.Int(4));
 	}
@@ -129,7 +129,7 @@ public final class Exo2Tests {
 	@Test
 	void deadCode_if_only_one_branch_breaks() {
 		new LeaAsserts("""
-				algorithme 
+				algorithme
 				début
 					tant que vrai faire
 						si vrai alors
@@ -146,7 +146,7 @@ public final class Exo2Tests {
 	@Test
 	void deadCode_if_both_branches_break() {
 		new LeaAsserts("""
-				algorithme 
+				algorithme
 				début
 					tant que vrai faire
 						si vrai alors
@@ -163,7 +163,7 @@ public final class Exo2Tests {
 	@Test
 	void deadCode_after_loop_is_still_reachable() {
 		new LeaAsserts("""
-				algorithme 
+				algorithme
 				début
 					tant que faux faire
 						interrompre;
