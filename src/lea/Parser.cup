@@ -56,7 +56,7 @@ parser code {:
 :}
 
 terminal							ALGORITHME, VARIABLES, DEBUT, FIN;
-terminal							SI, ALORS, SINON, TANT, QUE, FAIRE, POUR, DE, A, PAS;
+terminal							SI, ALORS, SINON, TANT, QUE, FAIRE, POUR, DE, A, PAS,BREAK;
 terminal							AFFECTATION, DEUX_PT, PT_VIRG, PAR_G, PAR_D;
 terminal							PLUS, MOINS, MULTIPLIE, ET, OU, NON, EGAL, INFERIEUR;
 terminal							ECRIRE;
@@ -98,6 +98,7 @@ instruction ::=
 	|	tantque:t				 					{: RESULT = t; :}
 	|	pour:p				 						{: RESULT = p; :}
 	|	error PT_VIRG								{: RESULT = error("Erreur dans la commande"); :}
+	|	BREAK PT_VIRG								{: break; :}
 ;
 
 commande ::=

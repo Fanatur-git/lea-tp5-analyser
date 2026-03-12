@@ -2,6 +2,8 @@ package lea;
 
 import java.util.*;
 
+import javax.swing.text.AbstractDocument.BranchElement;
+
 import lea.Node.*;
 import lea.Reporter.Phase;
 
@@ -33,6 +35,7 @@ public class Interpreter {
 		case While w		-> interpret(w);
 		case For f 			-> interpret(f);
 		case ErrorNode e	-> throw error(e, "Le programme contient une erreur de syntaxe");
+		case Break b 		-> throw BreakExpection("break");
 		}
 	}
 
@@ -61,7 +64,14 @@ public class Interpreter {
 
 	private void interpret(While w) throws PanicException {
 		while(evalAsBool(w.cond())) {
-			interpret(w.body());
+			try{
+				interpret(w.body());
+			}
+			catch(BreakExpection b ){
+				break;
+			}
+			
+			
 		}
 	}
 
@@ -131,7 +141,10 @@ public class Interpreter {
 		private static final long serialVersionUID = 1L;
 		public PanicException(String message) {super(message);}
 	}
-
+	private static class BreakExpection extends Exception {
+		private static final long serialVersionUID = 1L;
+		public BreakExpection(String message) {super(message);}
+	}
 	private PanicException error(Node n, String message) {
 		reporter.error(Phase.RUNTIME, n, message);
 		return new PanicException(message);

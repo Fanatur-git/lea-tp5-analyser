@@ -26,7 +26,8 @@ public final class Analyser {
 		case Write w			-> analyse(w.value(), context);
 		case If i				-> analyse(i, context); 
 		case While w			-> analyse(w, context); 
-		case For f				-> analyse(f, context); 
+		case For f				-> analyse(f, context);
+		 
 
 		case Value v			-> context;
 		case Identifier id		-> analyse(id, context);

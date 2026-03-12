@@ -17,6 +17,7 @@ public sealed interface Node {
 	public record While(Expression cond, Instruction body)					implements	Instruction {}
 	public record For(Identifier id, Expression start, Expression end,
 			Optional<Expression> step, Instruction body)					implements	Instruction {}
+	public record Break()													implements	Instruction {}	
 
 	public sealed interface Expression										extends 	Node {}
 	public record Identifier(String text)									implements	Expression {}

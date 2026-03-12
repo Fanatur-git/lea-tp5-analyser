@@ -58,6 +58,7 @@ import lea.Node.*;
 "de"  						{ return mark(Terminal.DE); }
 "à"  						{ return mark(Terminal.A); }
 "pas"  						{ return mark(Terminal.PAS); }
+"break"           { return mark (Terminal.BREAK); }
 
 "écrire"    				{ return mark(Terminal.ECRIRE); }
 
