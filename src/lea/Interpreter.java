@@ -2,7 +2,6 @@ package lea;
 
 import java.util.*;
 
-import javax.swing.text.AbstractDocument.BranchElement;
 
 import lea.Node.*;
 import lea.Reporter.Phase;
@@ -21,12 +20,13 @@ public class Interpreter {
 	public void execute(Program program) {
 		try {
 			interpret(program.body());
-		} catch (PanicException e) {}
+		} catch (PanicException e) {
+		} catch (BreakException e) {}
 	}
 
 
 
-	private void interpret(Instruction instruction) throws PanicException {
+	private void interpret(Instruction instruction) throws PanicException, BreakException {
 		switch(instruction) {
 		case Sequence s		-> interpret(s);
 		case Assignment a	-> variables.put(a.lhs(), eval(a.rhs()));
@@ -35,11 +35,11 @@ public class Interpreter {
 		case While w		-> interpret(w);
 		case For f 			-> interpret(f);
 		case ErrorNode e	-> throw error(e, "Le programme contient une erreur de syntaxe");
-		case Break b 		-> throw BreakExpection("break");
+		case Break b 		-> throw errorbreak(b,"Code mort");
 		}
 	}
 
-	private void interpret(Write w) throws PanicException {
+	private void interpret(Write w) throws PanicException, BreakException {
 		Value value = eval(w.value());
 		switch(value) {
 		case Int i		-> System.out.print(i.value());
@@ -49,12 +49,12 @@ public class Interpreter {
 		System.out.println();
 	}
 
-	private void interpret(Sequence sequence) throws PanicException {
+	private void interpret(Sequence sequence) throws PanicException, BreakException {
 		for(var commande : sequence.commands()) 
 			interpret(commande);
 	}
 
-	private void interpret(If i) throws PanicException {
+	private void interpret(If i) throws PanicException, BreakException {
 		if(evalAsBool(i.cond())) {
 			interpret(i.bodyT());
 		} else if(i.bodyF().isPresent()) {
@@ -62,12 +62,12 @@ public class Interpreter {
 		}
 	}
 
-	private void interpret(While w) throws PanicException {
+	private void interpret(While w) throws PanicException, BreakException {
 		while(evalAsBool(w.cond())) {
 			try{
 				interpret(w.body());
 			}
-			catch(BreakExpection b ){
+			catch(BreakException b ){
 				break;
 			}
 			
@@ -75,7 +75,7 @@ public class Interpreter {
 		}
 	}
 
-	private void interpret(For f) throws PanicException {
+	private void interpret(For f) throws PanicException, BreakException {
 		int start = evalAsInt(f.start());
 		int end = evalAsInt(f.end());
 		if(start < end) {
@@ -83,14 +83,29 @@ public class Interpreter {
 			if(step <= 0) throw error(f.step().get(), "Boucle pour infinie");
 			for(int i = start; i <= end; i+=step) {
 				variables.put(f.id(), new Int(i));
+				
+				try{
 				interpret(f.body());
+				System.out.println(f.getClass());
+			}
+			catch(BreakException b ){
+				break;
+				
+			}
 			}
 		} else {
 			int step = f.step().isPresent() ? evalAsInt(f.step().get()) : -1;
 			if(step >= 0) throw error(f.step().get(), "Boucle pour infinie");
 			for(int i = start; i >= end; i+=step) {
 				variables.put(f.id(), new Int(i));
+				try{
 				interpret(f.body());
+			}
+			catch(BreakException b ){
+				
+				break;
+				
+			}
 			}
 		}
 	}
@@ -141,13 +156,20 @@ public class Interpreter {
 		private static final long serialVersionUID = 1L;
 		public PanicException(String message) {super(message);}
 	}
-	private static class BreakExpection extends Exception {
-		private static final long serialVersionUID = 1L;
-		public BreakExpection(String message) {super(message);}
-	}
+	
 	private PanicException error(Node n, String message) {
 		reporter.error(Phase.RUNTIME, n, message);
 		return new PanicException(message);
+	}
+
+	private static class BreakException extends Exception {
+		private static final long serialVersionUID = 1L;
+		public BreakException(String message) {super(message);}
+	}
+	
+	private BreakException errorbreak(Node n, String message) {
+		reporter.error(Phase.RUNTIME, n, message);
+		return new BreakException(message);
 	}
 
 }

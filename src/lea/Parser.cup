@@ -98,7 +98,7 @@ instruction ::=
 	|	tantque:t				 					{: RESULT = t; :}
 	|	pour:p				 						{: RESULT = p; :}
 	|	error PT_VIRG								{: RESULT = error("Erreur dans la commande"); :}
-	|	BREAK PT_VIRG								{: break; :}
+	|	BREAK PT_VIRG								{: RESULT = new Break(); :}
 ;
 
 commande ::=

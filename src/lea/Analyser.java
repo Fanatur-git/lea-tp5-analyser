@@ -1,137 +1,149 @@
 package lea;
 
 import java.util.*;
-
 import lea.Reporter.Phase;
 import lea.Node.*;
 
 public final class Analyser {
 
-	private final Reporter reporter;
+    private final Reporter reporter;
 
-	public Analyser(Reporter reporter) {
-		this.reporter = reporter;
-	}
+    public Analyser(Reporter reporter) {
+        this.reporter = reporter;
+    }
 
-	public void analyse(Program program) {
-		analyse(program, new Context(program));
-	}
+    // Classe pour propager contexte + alive
+    private static final class AnalyseResult {
+        final Context context;
+        final boolean alive;
+        AnalyseResult(Context context, boolean alive) {
+            this.context = context;
+            this.alive = alive;
+        }
+    }
 
-	private Context analyse(Node node, Context context) {
-		return switch(node) {
-		case Program p			-> analyse(p.body(), context);
+    public void analyse(Program program) {
+        analyse(program, new Context(program));
+    }
 
-		case Sequence s			-> analyse(s, context);
-		case Assignment a		-> analyse(a, context);
-		case Write w			-> analyse(w.value(), context);
-		case If i				-> analyse(i, context); 
-		case While w			-> analyse(w, context); 
-		case For f				-> analyse(f, context);
-		 
+    private AnalyseResult analyse(Node node, Context context) {
+        return switch (node) {
+            case Program p      -> analyse(p.body(), context);
+            case Sequence s     -> analyse(s, context);
+            case Assignment a   -> new AnalyseResult(analyse(a, context), true);
+            case Write w        -> new AnalyseResult(analyse(w.value(), context).context, true);
+            case If i           -> analyse(i, context);
+            case While w        -> analyse(w, context);
+            case For f          -> analyse(f, context);
+            case Break b        -> new AnalyseResult(context, false);
+            case Value v        -> new AnalyseResult(context, true);
+            case Identifier id  -> new AnalyseResult(analyse(id, context), true);
+            case Sum s          -> new AnalyseResult(analyse(s.right(), analyse(s.left(), context).context).context, true);
+            case Difference d   -> new AnalyseResult(analyse(d.right(), analyse(d.left(), context).context).context, true);
+            case Product p      -> new AnalyseResult(analyse(p.right(), analyse(p.left(), context).context).context, true);
+            case And a          -> new AnalyseResult(analyse(a.right(), analyse(a.left(), context).context).context, true);
+            case Or o           -> new AnalyseResult(analyse(o.right(), analyse(o.left(), context).context).context, true);
+            case Equal e        -> new AnalyseResult(analyse(e.right(), analyse(e.left(), context).context).context, true);
+            case Lower l        -> new AnalyseResult(analyse(l.right(), analyse(l.left(), context).context).context, true);
+            case Inverse i      -> new AnalyseResult(analyse(i.argument(), context).context, true);
+            case Not n          -> new AnalyseResult(analyse(n.argument(), context).context, true);
+            case ErrorNode e    -> new AnalyseResult(context, true);
+        };
+    }
 
-		case Value v			-> context;
-		case Identifier id		-> analyse(id, context);
-		case Sum s				-> analyse(s.right(), analyse(s.left(), context));
-		case Difference d		-> analyse(d.right(), analyse(d.left(), context));
-		case Product p			-> analyse(p.right(), analyse(p.left(), context));
-		case And a				-> analyse(a.right(), analyse(a.left(), context));
-		case Or o				-> analyse(o.right(), analyse(o.left(), context));
-		case Equal e			-> analyse(e.right(), analyse(e.left(), context));
-		case Lower l			-> analyse(l.right(), analyse(l.left(), context));
-		case Inverse i			-> analyse(i.argument(), context);
-		case Not n				-> analyse(n.argument(), context);
+    private AnalyseResult analyse(Sequence sequence, Context context) {
+        boolean alive = true;
+        for (var instr : sequence.commands()) {
+            if (alive) {
+                AnalyseResult res = analyse(instr, context);
+                context = res.context;
+                alive = res.alive;
+            } else {
+                context = error(instr, "Code mort", context);
+            }
+        }
+        return new AnalyseResult(context, alive);
+    }
 
-		case ErrorNode e		-> context;
-		};
-	}
+    private Context analyse(Assignment assignment, Context context) {
+        if (!context.declared.contains(assignment.lhs()))
+            error(assignment.lhs(), "Variable non déclarée", context);
+        Context cRhs = analyse(assignment.rhs(), context).context;
+        return cRhs.withWritten(assignment.lhs());
+    }
 
-	private Context analyse(Sequence sequence, Context context) {
-		for(var commande : sequence.commands()) {
-			context = analyse(commande, context);
-		}
-		return context;
-	}
+    private AnalyseResult analyse(If i, Context context) {
+        AnalyseResult condRes = analyse(i.cond(), context);
+        AnalyseResult thenRes = analyse(i.bodyT(), condRes.context);
 
-	private Context analyse(Assignment assignment, Context context) {
-		if (!context.declared.contains(assignment.lhs()))	
-			error(assignment.lhs(), "Variable non déclarée", context);
-		Context cRhs = analyse(assignment.rhs(), context);
-		return cRhs.withWritten(assignment.lhs());
-	}
+        AnalyseResult elseRes;
+        if (i.bodyF().isPresent()) {
+            elseRes = analyse(i.bodyF().get(), condRes.context);
+        } else {
+            elseRes = new AnalyseResult(condRes.context, true);
+        }
 
-	private Context analyse(If i, Context context) {
-		Context cCond  = analyse(i.cond(), context);
-		Context cTrue  = analyse(i.bodyT(), cCond);
-		if(i.bodyF().isEmpty())
-			return cCond.merge(cTrue);
-		Context cFalse = analyse(i.bodyF().get(), cCond);
-		return cTrue.merge(cFalse);
-	}
+        Context merged = thenRes.context.merge(elseRes.context);
+        boolean aliveAfter = thenRes.alive || elseRes.alive;
 
-	private Context analyse(While w, Context context) {
-		Context cCond = analyse(w.cond(), context);
-		Context cBody = analyse(w.body(), cCond);
-		return cCond.merge(cBody);
-	}
+        return new AnalyseResult(merged, aliveAfter);
+    }
 
-	private Context analyse(For f, Context context) {
-		context = analyse(f.start(), context);
-		context = analyse(f.end(), context);
-		if(f.step().isPresent()) context = analyse(f.step().get(), context);
-		Context cBefore = context.withWritten(f.id());
-		Context cBody = analyse(f.body(), cBefore);
-		return cBefore.merge(cBody);
-	}
+    private AnalyseResult analyse(While w, Context context) {
+        AnalyseResult condRes = analyse(w.cond(), context);
+        AnalyseResult bodyRes = analyse(w.body(), condRes.context);
+        Context merged = condRes.context.merge(bodyRes.context);
+        return new AnalyseResult(merged, true); // flux actif après boucle
+    }
 
-	private Context analyse(Identifier id, Context context) {
-		if (!context.declared.contains(id))	error(id, "Variable non déclarée", context);
-		else if (!context.written.contains(id))	error(id, "Variable non initialisée", context);
-		return context;
-	}
+    private AnalyseResult analyse(For f, Context context) {
+        context = analyse(f.start(), context).context;
+        context = analyse(f.end(), context).context;
+        if (f.step().isPresent()) context = analyse(f.step().get(), context).context;
 
-	
-	
-	
-	
-	/**
-	 * Gestion des erreurs
-	 * @param n
-	 * @param message
-	 * @param context
-	 * @return
-	 */
-	private Context error(Node n, String message, Context context) {
-		reporter.error(Phase.STATIC, n, message);
-		return context;
-	}
+        Context contextBefore = context.withWritten(f.id());
+        AnalyseResult bodyRes = analyse(f.body(), contextBefore);
+        Context merged = contextBefore.merge(bodyRes.context);
+        return new AnalyseResult(merged, true);
+    }
 
-	private static final class Context {
+    private Context analyse(Identifier id, Context context) {
+        if (!context.declared.contains(id))
+            error(id, "Variable non déclarée", context);
+        else if (!context.written.contains(id))
+            error(id, "Variable non initialisée", context);
+        return context;
+    }
 
-		final Set<Identifier> declared;
-		final Set<Identifier> written;
+    private Context error(Node n, String message, Context context) {
+        reporter.error(Phase.STATIC, n, message);
+        return context;
+    }
 
-		public Context(Program program) {
-			declared = Set.copyOf(program.declared());
-			written = Set.of();
-		}
+    private static final class Context {
+        final Set<Identifier> declared;
+        final Set<Identifier> written;
 
-		private Context(Set<Identifier> declared, Set<Identifier> written) {
-			this.declared = Set.copyOf(declared);
-			this.written = Set.copyOf(written);
-		}
+        public Context(Program program) {
+            declared = Set.copyOf(program.declared());
+            written = Set.of();
+        }
 
-		public Context withWritten(Identifier id) { 
-			var writ = new HashSet<>(written); 
-			writ.add(id); 
-			return new Context(declared, writ); 
-		}
+        private Context(Set<Identifier> declared, Set<Identifier> written) {
+            this.declared = Set.copyOf(declared);
+            this.written = Set.copyOf(written);
+        }
 
-		public Context merge(Context other) {
-			var writ = new HashSet<>(written);
-			writ.retainAll(other.written);
-			return new Context(declared, writ);
-		}
+        public Context withWritten(Identifier id) {
+            var writ = new HashSet<>(written);
+            writ.add(id);
+            return new Context(declared, writ);
+        }
 
-	}
-
+        public Context merge(Context other) {
+            var writ = new HashSet<>(written);
+            writ.retainAll(other.written);
+            return new Context(declared, writ);
+        }
+    }
 }
